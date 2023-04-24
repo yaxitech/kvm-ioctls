@@ -217,7 +217,7 @@ mod ioctls;
 pub use cap::Cap;
 pub use ioctls::device::DeviceFd;
 pub use ioctls::system::Kvm;
-pub use ioctls::vcpu::{VcpuExit, VcpuFd};
+pub use ioctls::vcpu::{KvmExitVmgexit, VcpuExit, VcpuFd};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub use ioctls::vcpu::SyncReg;
