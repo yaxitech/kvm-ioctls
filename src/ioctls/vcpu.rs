@@ -102,6 +102,8 @@ pub enum VcpuExit<'a> {
     IoapicEoi(u8 /* vector */),
     /// Corresponds to KVM_EXIT_HYPERV.
     Hyperv,
+    /// Corresponds to KVM_EXIT_VMGEXIT.
+    Vmgexit(KvmExitVmgexit<'a>),
     /// Corresponds to an exit reason that is unknown from the current version
     /// of the kvm-ioctls crate. Let the consumer decide about what to do with
     /// it.
@@ -1465,6 +1467,26 @@ impl VcpuFd {
                     Ok(VcpuExit::IoapicEoi(eoi.vector))
                 }
                 KVM_EXIT_HYPERV => Ok(VcpuExit::Hyperv),
+                KVM_EXIT_VMGEXIT => {
+                    // SAFETY: Safe because the exit_reason (which comes from the kernel) told us which
+                    // union field to use.
+                    let exit = unsafe {
+                        &mut *(&mut run.__bindgen_anon_1 as *mut kvm_run__bindgen_ty_1
+                            as *mut kvm_user_vmgexit)
+                    };
+                    Ok(VcpuExit::Vmgexit(match exit.type_ {
+                        KVM_USER_VMGEXIT_PSC_MSR => KvmExitVmgexit::PageStateChangeMsr(unsafe {
+                            &mut exit.__bindgen_anon_1.psc_msr
+                        }),
+                        KVM_USER_VMGEXIT_PSC => KvmExitVmgexit::PageStateChange(unsafe {
+                            &mut exit.__bindgen_anon_1.psc
+                        }),
+                        KVM_USER_VMGEXIT_EXT_GUEST_REQ => KvmExitVmgexit::ExtGuestRequest(unsafe {
+                            &mut exit.__bindgen_anon_1.ext_guest_req
+                        }),
+                        other => KvmExitVmgexit::Unknown(other),
+                    }))
+                }
                 r => Ok(VcpuExit::Unsupported(r)),
             }
         } else {
@@ -1736,6 +1758,63 @@ impl AsRawFd for VcpuFd {
     fn as_raw_fd(&self) -> RawFd {
         self.vcpu.as_raw_fd()
     }
+}
+
+/// KVM_EXIT_VMGEXIT
+#[derive(Debug, PartialEq)]
+pub enum KvmExitVmgexit<'a> {
+    /// Corresponds to KVM_USER_VMGEXIT_PSC_MSR
+    PageStateChangeMsr(&'a mut kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_1),
+    /// Corresponds to KVM_USER_VMGEXIT_PSC
+    PageStateChange(&'a mut kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_2),
+    /// Corresponds to KVM_USER_VMGEXIT_EXT_GUEST_REQ
+    ExtGuestRequest(&'a mut kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_3),
+    /// Unknown Vmgexit type
+    Unknown(__u32),
+}
+
+/// The following consts and structs will be part of kvm_bindings eventually
+pub const KVM_EXIT_VMGEXIT: u32 = 40;
+pub const KVM_USER_VMGEXIT_PSC_MSR: u32 = 1;
+pub const KVM_USER_VMGEXIT_PSC: u32 = 2;
+pub const KVM_USER_VMGEXIT_EXT_GUEST_REQ: u32 = 3;
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(missing_docs)]
+pub struct kvm_user_vmgexit {
+    pub type_: __u32,
+    pub __bindgen_anon_1: kvm_user_vmgexit__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+#[allow(missing_docs)]
+pub union kvm_user_vmgexit__bindgen_ty_1 {
+    pub psc_msr: kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_1,
+    pub psc: kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_2,
+    pub ext_guest_req: kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_3,
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[allow(missing_docs)]
+pub struct kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_1 {
+    pub gpa: __u64,
+    pub op: __u8,
+    pub ret: __u32,
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[allow(missing_docs)]
+pub struct kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_2 {
+    pub shared_gpa: __u64,
+    pub ret: __u64,
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[allow(missing_docs)]
+pub struct kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_3 {
+    pub data_gpa: __u64,
+    pub data_npages: __u64,
+    pub ret: __u32,
 }
 
 #[cfg(test)]
