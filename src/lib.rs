@@ -221,7 +221,10 @@ pub use ioctls::device::DeviceFd;
 pub use ioctls::system::Kvm;
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub use ioctls::vcpu::reg_size;
-pub use ioctls::vcpu::{VcpuExit, VcpuFd};
+pub use ioctls::vcpu::{
+    kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_1, kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_2,
+    kvm_user_vmgexit__bindgen_ty_1__bindgen_ty_3, KvmExitVmgexit, VcpuExit, VcpuFd,
+};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub use ioctls::vcpu::{MsrExitReason, ReadMsrExit, SyncReg, WriteMsrExit};
